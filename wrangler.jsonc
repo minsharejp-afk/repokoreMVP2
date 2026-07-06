@@ -6,7 +6,7 @@
 
   // D1（データベース）: `wrangler d1 create repokore` で作成し、出力された database_id を入れる
   "d1_databases": [
-    { "binding": "DB", "database_name": "repokore", "database_id": "<あなたのD1のdatabase_id>" }
+    { "binding": "DB", "database_name": "repokore", "database_id": "4bd351e0-e718-4f38-8634-fb4fb9842a54" }
   ],
 
   // R2（画像ストレージ）: `wrangler r2 bucket create repokore-receipts`
