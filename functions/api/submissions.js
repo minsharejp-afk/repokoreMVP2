@@ -1,4 +1,4 @@
-import { json, preflight, geminiExtract, shape, n } from "./_lib.js";
+import { json, preflight, geminiExtract, shape, n, isClean } from "./_lib.js";
 
 export const onRequestOptions = () => preflight();
 
@@ -33,9 +33,23 @@ export async function onRequestPost(context) {
   const netRead = net != null ? net : (total != null ? total - (ret || 0) - (disc || 0) : null);
   const netFormula = total != null ? total - (ret || 0) - (disc || 0) : null;
 
-  await env.DB.prepare(
-    "INSERT INTO submissions (id,created_at,sale_date,tenant,image_key,vendor,raw_json,total_sales,returns,discounts,net_read,net_formula,customers,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending')"
-  ).bind(id, new Date().toISOString(), sale_date || new Date().toISOString().slice(0, 10), tenant, id, g.vendor || null, JSON.stringify(g), total, ret, disc, netRead, netFormula, cust).run();
+  // 読取が確実なら自動承認（縦計一致＋客数あり）。不確かなものだけ人の確認へ回す。
+  const clean = isClean(total, ret, disc, netRead, netFormula, cust);
+  const now = new Date().toISOString();
+  const status = clean ? "approved" : "pending";
+  const netFinal = clean ? netRead : null;
+  const custFinal = clean ? cust : null;
+  const approvedBy = clean ? "auto" : null;
+  const approvedAt = clean ? now : null;
 
-  return json({ id });
+  await env.DB.prepare(
+    "INSERT INTO submissions (id,created_at,sale_date,tenant,image_key,vendor,raw_json,total_sales,returns,discounts,net_read,net_formula,customers,status,net_final,cust_final,approved_by,approved_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+  ).bind(id, now, sale_date || now.slice(0, 10), tenant, id, g.vendor || null, JSON.stringify(g), total, ret, disc, netRead, netFormula, cust, status, netFinal, custFinal, approvedBy, approvedAt).run();
+
+  if (clean) {
+    await env.DB.prepare("INSERT INTO audit (submission_id,ts,actor,action,detail) VALUES (?,?,?,?,?)")
+      .bind(id, now, "auto", "auto-approve", JSON.stringify({ netFinal, custFinal, reason: "縦計一致＋客数あり" })).run();
+  }
+
+  return json({ id, auto_approved: clean });
 }
