@@ -35,39 +35,60 @@ function Chrome({children}){return(<>
 
 async function api(path,opts){const r=await fetch(path,opts);if(!r.ok)throw new Error(await r.text());return r.json();}
 
+function ConfBar({v}){const col=v>=90?c.greenOk:v>=60?c.amber:c.red;return(<div style={{margin:"6px 0 4px"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}><span style={{color:c.muted}}>信頼度（不確かさの度合い）</span><span style={{fontWeight:800,color:col,...num}}>{v}%</span></div><div style={{height:8,background:"#e7e9f0",borderRadius:5,overflow:"hidden"}}><div style={{width:v+"%",height:"100%",background:col}}/></div></div>);}
+function Tatekei({t}){
+  if(!t.hasBreakdown)return(<div style={{background:c.zebra,border:`1px solid ${c.line}`,borderRadius:6,padding:"10px 12px",marginBottom:8,fontSize:12,color:c.muted}}>内訳（総売上・返品・割引）が無いため縦計で照合できません。読取値のみで判断します。</div>);
+  const ok=t.holds;
+  return(<div style={{background:c.zebra,border:`1px solid ${ok?c.greenOk:c.red}`,borderRadius:6,padding:"10px 12px",marginBottom:8}}>
+    <div style={{fontSize:12,fontWeight:700,color:c.navy,marginBottom:6}}>縦計（他項目から純売上を検算）</div>
+    {t.rows.map((r,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:c.muted}}>{r.op?<b style={{marginRight:6}}>{r.op}</b>:null}{r.label}</span><span style={num}>{yen(r.value)}</span></div>))}
+    <div style={{borderTop:`1px solid ${c.line}`,margin:"5px 0"}}/>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:800}}><span>＝ 計算値</span><span style={num}>{yen(t.computed)}</span></div>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:c.muted}}>純売上（読取）</span><span style={num}>{yen(t.read)}</span></div>
+    <div style={{marginTop:6,fontSize:13,fontWeight:800,color:ok?c.greenOk:c.red}}>{ok?"✓ 一致（縦計OK）":`✗ 不一致（差 ${yen(t.diff)}）`}</div>
+  </div>);
+}
 function Dashboard({items,onOpen,loading}){
-  const red=items.reduce((s,x)=>s+((!x.approved&&x.netSev==="red"?1:0)+(!x.approved&&x.custSev==="red"?1:0)),0);
-  const amber=items.reduce((s,x)=>s+((!x.approved&&x.netSev==="amber"?1:0)+(!x.approved&&x.custSev==="amber"?1:0)),0);
+  const [filter,setFilter]=useState("todo");
   const pending=items.filter(x=>!x.approved).length;
+  const autoN=items.filter(x=>x.auto).length;
+  const confColor=(v)=>v>=90?c.greenOk:v>=60?c.amber:c.red;
+  const rows=(filter==="todo"?items.filter(x=>!x.approved):items).slice().sort((a,b)=>(a.approved?1:0)-(b.approved?1:0)||a.overall-b.overall);
+  const sBadge=(x)=>{const lv=x.status==="要修正"?"red":x.status==="要確認"?"amber":"green";const m=SEV[lv];return <span style={{background:m.bg,color:m.fg,fontSize:12,fontWeight:700,padding:"2px 9px",borderRadius:10,whiteSpace:"nowrap"}}>{x.status}</span>;};
   return(<Chrome>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",background:c.lavenderLite,borderBottom:`1px solid ${c.line}`}}>
-      <div style={{display:"flex",gap:14,fontSize:13,alignItems:"center"}}><span style={{fontWeight:800,color:c.navy,fontSize:15}}>日次確認ダッシュボード</span><span style={{color:c.muted}}>テナント送信を自動反映（5秒ごと更新）</span></div>
+      <div style={{display:"flex",gap:14,fontSize:13,alignItems:"center"}}><span style={{fontWeight:800,color:c.navy,fontSize:15}}>日次確認ダッシュボード</span><span style={{color:c.muted}}>確実なものは自動承認。人の確認は不確かな時だけ（5秒ごと更新）</span></div>
       <span style={{background:c.yellow,color:c.yellowText,fontWeight:800,fontSize:12,padding:"4px 12px",borderRadius:4}}>不読修正モード</span>
     </div>
     <div style={{padding:14}}>
-      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-        {[["提出済み",items.length,c.navy],["未処理",pending,c.red],["要修正",red,c.red],["要確認",amber,c.amber]].map(([l,v,a])=>(
+      <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+        {[["提出済み",items.length,c.navy],["自動承認",autoN,c.greenOk],["要対応",pending,pending?c.red:c.greenOk]].map(([l,v,a])=>(
           <div key={l} style={{background:c.white,border:`1px solid ${c.line}`,borderRadius:6,padding:"12px 16px",flex:1,minWidth:120}}><div style={{fontSize:12,color:c.muted,marginBottom:4}}>{l}</div><div style={{...num,fontSize:26,fontWeight:800,color:a}}>{v}</div></div>
         ))}
       </div>
+      <div style={{display:"flex",gap:6,marginBottom:10,alignItems:"center"}}>
+        {[["todo","要対応"],["all","すべて"]].map(([k,l])=>(<button key={k} onClick={()=>setFilter(k)} style={{cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:700,padding:"6px 16px",borderRadius:4,border:`1px solid ${filter===k?c.navy:c.line}`,background:filter===k?c.navy:c.white,color:filter===k?c.white:c.muted}}>{l}</button>))}
+        <span style={{marginLeft:"auto",fontSize:12,color:c.muted}}>信頼度の低い順に表示</span>
+      </div>
       <div style={{background:c.white,border:`1px solid ${c.line}`,borderRadius:6,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-          <thead><tr style={{background:c.lavender,color:c.navy}}>{["テナント","売上日","純売上(読取)","客数","状態",""].map((h,i)=>(<th key={i} style={{textAlign:i===0?"left":i>=2&&i<=3?"right":"left",padding:"10px 12px",fontWeight:700}}>{h}</th>))}</tr></thead>
+          <thead><tr style={{background:c.lavender,color:c.navy}}>{["テナント","売上日","純売上","客数","信頼度","状態",""].map((h,i)=>(<th key={i} style={{textAlign:i===0?"left":i>=2&&i<=4?"right":"left",padding:"10px 12px",fontWeight:700}}>{h}</th>))}</tr></thead>
           <tbody>
-            {items.length===0&&(<tr><td colSpan={6} style={{padding:24,textAlign:"center",color:c.muted}}>{loading?"読み込み中…":"まだ送信されたレシートはありません。テナントが撮影・送信すると自動で表示されます。"}</td></tr>)}
-            {items.map((x,i)=>{const sev=x.approved?"green":(x.netSev==="red"||x.custSev==="red")?"red":(x.netSev==="amber"||x.custSev==="amber")?"amber":"green";
+            {rows.length===0&&(<tr><td colSpan={7} style={{padding:24,textAlign:"center",color:c.muted}}>{loading?"読み込み中…":filter==="todo"?"要対応はありません（確実なものは自動承認済み）。":"まだ送信されたレシートはありません。"}</td></tr>)}
+            {rows.map((x,i)=>{const sev=x.status==="要修正"?"red":x.status==="要確認"?"amber":"green";
               return(<tr key={x.id} onClick={()=>onOpen(x)} style={{background:i%2?c.zebra:c.white,cursor:"pointer",borderLeft:`3px solid ${sev==="red"?c.red:sev==="amber"?c.amber:"transparent"}`}}>
                 <td style={{padding:"9px 12px",fontWeight:700}}>{x.tenant}</td>
                 <td style={{padding:"9px 12px",color:c.muted,...num}}>{x.sale_date}</td>
                 <td style={{padding:"9px 12px",textAlign:"right",...num}}>{yen(x.approved?x.net_final:x.net_read)}</td>
                 <td style={{padding:"9px 12px",textAlign:"right",...num}}>{x.approved?x.cust_final:(x.customers==null?"—":x.customers)}</td>
-                <td style={{padding:"9px 12px"}}>{x.approved?<Badge lv="green"/>:<Badge lv={sev}/>}</td>
-                <td style={{padding:"9px 12px",textAlign:"right",color:c.navy,fontWeight:700}}>{x.approved?"確認 →":"不読修正 →"}</td>
+                <td style={{padding:"9px 12px",textAlign:"right",...num,fontWeight:800,color:confColor(x.overall)}}>{x.overall}%</td>
+                <td style={{padding:"9px 12px"}}>{sBadge(x)}</td>
+                <td style={{padding:"9px 12px",textAlign:"right",color:c.navy,fontWeight:700}}>{x.approved?(x.auto?"根拠を見る →":"確認 →"):"不読修正 →"}</td>
               </tr>);})}
           </tbody>
         </table>
       </div>
-      <div style={{fontSize:11,color:c.muted,marginTop:12,lineHeight:1.6}}>算術（純売上＝総売上−返品−割引）はサーバ側で確定計算。Geminiは画像からの構造抽出のみ。行をクリックすると不読修正・承認画面へ。</div>
+      <div style={{fontSize:11,color:c.muted,marginTop:12,lineHeight:1.6}}>縦計（総売上−返品−割引＝純売上）が合致し客数も読めていれば自動承認。算術はサーバ側で確定計算、Geminiは構造抽出のみ。</div>
     </div>
   </Chrome>);
 }
@@ -112,15 +133,14 @@ function Approve({item,onBack,onApproved}){
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <div style={{background:c.white,border:`1px solid ${item.netSev==="green"?c.greenOk:c.line}`,borderRadius:6,padding:14}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontWeight:800,fontSize:16}}>純売上</span><Badge lv={item.approved?"green":item.netSev}/></div>
-          {item.approved?(<div style={{background:c.greenBg,borderRadius:4,padding:"10px 12px",display:"flex",justifyContent:"space-between"}}><span style={{color:c.greenOk,fontWeight:700}}>確定値</span><span style={{...num,fontSize:18,fontWeight:800}}>{yen(item.net_final)} 円</span></div>):(<>
-            <div style={{display:"flex",gap:16,fontSize:13,marginBottom:10}}><span style={{color:c.muted}}>AI読取値 <b style={{...num,color:c.text,fontSize:15}}>{yen(item.net_read)}</b> 円</span></div>
-            <div style={{display:"flex",gap:20,fontSize:13,marginBottom:10}}><span>たて計（縦計）: <b style={{color:ck(tatekei).fg}}>{ck(tatekei).t}</b></span></div>
-            {item.hasBreakdown&&<div style={{fontSize:12,color:c.muted,marginBottom:6}}>式: {item.formula} ＝ <b style={{color:c.greenOk,...num}}>{yen(item.net_formula)}</b></div>}
-            <div style={{fontSize:12,color:c.muted,marginBottom:6}}>訂正候補（★＝式が成立）</div>
+          <Tatekei t={item.tatekei}/>
+          <ConfBar v={item.netConf}/>
+          {item.approved?(<div style={{background:c.greenBg,borderRadius:4,padding:"10px 12px",display:"flex",justifyContent:"space-between",marginTop:8}}><span style={{color:c.greenOk,fontWeight:700}}>{item.auto?"自動承認（確定値）":"確定値"}</span><span style={{...num,fontSize:18,fontWeight:800}}>{yen(item.net_final)} 円</span></div>):(<>
+            <div style={{fontSize:12,color:c.muted,margin:"8px 0 6px"}}>訂正候補（★＝縦計が成立する値）</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
               {item.candidates.map((cd,i)=>(<button key={i} onClick={()=>{setSel(i);setManNet("");}} style={{cursor:"pointer",borderRadius:18,padding:"7px 14px",fontSize:13,fontFamily:font,border:`2px solid ${sel===i&&manNet===""?c.blue:cd.star?c.greenOk:c.line}`,background:sel===i&&manNet===""?"#eaf2fc":cd.star?c.greenBg:c.white,fontWeight:cd.star?800:600}}><span style={num}>{yen(cd.v)}</span>{cd.star&&<span style={{color:c.greenOk,marginLeft:5}}>★</span>}<span style={{display:"block",fontSize:10,color:c.muted,fontWeight:500}}>{cd.note}</span></button>))}
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
               <span style={{fontSize:12,color:c.muted}}>不読修正（手入力）:</span>
               <input value={manNet} onChange={e=>setManNet(e.target.value)} placeholder="値を直接入力" style={{...num,border:`1px solid ${c.line}`,borderRadius:4,padding:"6px 10px",fontSize:14,width:140}}/>
             </div>
@@ -132,6 +152,13 @@ function Approve({item,onBack,onApproved}){
             <div style={{fontSize:13,color:c.muted,marginBottom:8}}>AI読取値 <b style={{...num,color:c.text,fontSize:15}}>{item.customers==null?"読取不可":item.customers}</b> {item.customers==null?"":"人"}　たて計: 対象外（単一値）</div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:12,color:c.muted}}>不読修正:</span><input value={cust} onChange={e=>setCust(e.target.value)} placeholder="人数" style={{...num,border:`1px solid ${c.line}`,borderRadius:4,padding:"6px 10px",fontSize:14,width:100}}/></div>
           </>)}
+        </div>
+        <div style={{background:c.white,border:`1px solid ${c.line}`,borderRadius:6,padding:14}}>
+          <Sec>確からしさの根拠（AIの確認プロセス）</Sec>
+          <ol style={{margin:0,paddingLeft:18,fontSize:13,lineHeight:1.75,color:c.text}}>
+            {item.reasons.map((rz,i)=>(<li key={i}>{rz}</li>))}
+          </ol>
+          <div style={{fontSize:11,color:c.muted,marginTop:8}}>総合信頼度 <b style={{color:item.overall>=90?c.greenOk:item.overall>=60?c.amber:c.red}}>{item.overall}%</b>（純売上 {item.netConf}%・客数 {item.custConf}% の低い方）</div>
         </div>
         {err&&<div style={{background:c.redBg,color:c.red,borderRadius:6,padding:"8px 10px",fontSize:12,wordBreak:"break-all"}}>{err}</div>}
         {!item.approved&&<button onClick={approve} disabled={busy||netVal==null||isNaN(netVal)} style={{...btn(busy?"#9bbf7e":c.green,c.white),fontSize:14,padding:"10px 20px",alignSelf:"flex-start"}}>{busy?"送信中…":"この内容で承認する"}</button>}
