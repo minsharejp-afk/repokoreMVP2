@@ -88,7 +88,7 @@ function Dashboard({items,onOpen,loading}){
           </tbody>
         </table>
       </div>
-      <div style={{fontSize:11,color:c.muted,marginTop:12,lineHeight:1.6}}>縦計（総売上−返品−割引＝純売上）が合致し客数も読めていれば自動承認。算術はサーバ側で確定計算、Geminiは構造抽出のみ。</div>
+      <div style={{fontSize:11,color:c.muted,marginTop:12,lineHeight:1.6}}>純売上の構成要素（レシートごとに異なる）をGeminiが符号付きで特定し、その合計が印字の純売上と一致するかをサーバ側で検算。一致＋客数ありで自動承認。算術はコード側で確定、Geminiは構造抽出のみ。</div>
     </div>
   </Chrome>);
 }
@@ -135,6 +135,7 @@ function Approve({item,onBack,onApproved}){
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontWeight:800,fontSize:16}}>純売上</span><Badge lv={item.approved?"green":item.netSev}/></div>
           <Tatekei t={item.tatekei}/>
           <ConfBar v={item.netConf}/>
+          {item.ocr&&<div style={{display:"inline-block",marginBottom:8,fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:10,background:item.ocr.connected?(item.ocr.net==="agree"?c.greenBg:c.amberBg):c.zebra,color:item.ocr.connected?(item.ocr.net==="agree"?c.greenOk:c.amber):c.muted}}>OCR突合: {item.ocr.connected?item.ocr.netLabel:"未接続（Gemini＋縦計）"}</div>}
           {item.approved?(<div style={{background:c.greenBg,borderRadius:4,padding:"10px 12px",display:"flex",justifyContent:"space-between",marginTop:8}}><span style={{color:c.greenOk,fontWeight:700}}>{item.auto?"自動承認（確定値）":"確定値"}</span><span style={{...num,fontSize:18,fontWeight:800}}>{yen(item.net_final)} 円</span></div>):(<>
             <div style={{fontSize:12,color:c.muted,margin:"8px 0 6px"}}>訂正候補（★＝縦計が成立する値）</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
