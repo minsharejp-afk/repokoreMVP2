@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>れぽこれ！ テナント（スマホ）</title>
+<style>
+:root{--navy:#1f3a63;--green:#7cb342;--greenD:#5c9130;--line:#d3d6e2;--muted:#6b7280;--page:#eef0f5;--red:#c0392b;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;height:100%;background:#000;font-family:"Hiragino Kaku Gothic ProN","Meiryo","Yu Gothic",system-ui,sans-serif;color:#242838;}
+#app{max-width:480px;margin:0 auto;height:100dvh;background:var(--page);display:flex;flex-direction:column;position:relative;overflow:hidden;}
+.head{background:#fff;border-top:3px solid var(--green);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+.logo{font-size:19px;font-weight:800;color:var(--greenD);}.logo .g{color:var(--green);}
+.htitle{font-size:12px;color:var(--muted);margin-left:auto;}
+.body{flex:1 1 auto;overflow:auto;padding:18px;}
+.screen{display:none;height:100%;}.screen.on{display:flex;flex-direction:column;}
+label{font-size:12px;font-weight:700;color:var(--navy);display:block;margin:12px 0 4px;}
+input{width:100%;padding:12px;font-size:15px;border:1px solid var(--line);border-radius:10px;background:#fff;}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;}
+.row:last-child{border-bottom:none;}.row .k{color:var(--muted);}.row .v{font-weight:700;text-align:right;}
+.btn{width:100%;padding:14px;font-size:16px;font-weight:800;border:none;border-radius:10px;background:var(--green);color:#fff;cursor:pointer;margin-top:14px;}
+.btn:disabled{background:#9bbf7e;}
+.btn.sec{background:#fff;color:var(--navy);border:1px solid var(--line);}
+.btn.ghost{background:#fff;color:var(--muted);border:1px solid var(--line);}
+.muted{color:var(--muted);font-size:12px;line-height:1.6;}
+.qr{width:96px;height:96px;margin:6px auto 8px;border:2px solid var(--navy);border-radius:10px;display:grid;place-items:center;color:var(--navy);font-size:11px;font-weight:700;}
+.center{text-align:center;}
+.err{background:#fce8e8;color:var(--red);border-radius:8px;padding:10px;font-size:12px;margin:10px 0;word-break:break-all;}
+/* camera */
+#cam{position:absolute;inset:0;background:#111;display:none;flex-direction:column;z-index:5;}
+#cam.on{display:flex;}
+.cam-top{position:absolute;top:10px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;color:#fff;font-size:22px;z-index:3;}
+.cam-hint{font-size:11px;background:rgba(0,0,0,.45);padding:3px 10px;border-radius:10px;}
+.frame{position:absolute;top:64px;left:34px;right:34px;bottom:128px;border:2px dashed rgba(80,150,255,.9);border-radius:6px;z-index:2;}
+.frame span{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:rgba(30,95,174,.95);color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:3px;white-space:nowrap;}
+.decoy{position:absolute;inset:0;display:grid;place-items:center;opacity:.35;}
+.decoy .paper{width:150px;background:#faf9f6;color:#333;font-family:monospace;font-size:9px;padding:10px;transform:rotate(-2deg);line-height:1.5;}
+.guide{position:absolute;left:16px;right:16px;bottom:100px;background:rgba(255,255,255,.96);border-radius:8px;padding:12px;font-size:12px;line-height:1.7;z-index:4;display:none;}
+.guide.on{display:block;}
+.cam-bar{position:absolute;left:0;right:0;bottom:0;background:#0f1b30;display:flex;align-items:center;justify-content:space-between;padding:14px 24px;z-index:3;}
+.cam-bar .t{color:#fff;font-size:14px;cursor:pointer;}
+.shutter{width:60px;height:60px;border-radius:50%;background:#fff;border:5px solid var(--red);display:grid;place-items:center;cursor:pointer;position:relative;}
+.shutter input{position:absolute;inset:0;opacity:0;}
+.ok{background:#e8f5ea;color:#3a8a4c;border-radius:10px;padding:14px;font-size:14px;line-height:1.6;}
+img.preview{width:100%;border-radius:10px;display:block;margin-bottom:12px;}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-2px;margin-right:6px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+</style></head><body>
+<div id="app">
+  <div class="head"><span class="logo">れぽ<span class="g">こ</span>れ！</span><span class="htitle" id="htitle">ログイン</span></div>
+  <div class="body">
+    <!-- login -->
+    <div class="screen on" id="s-login">
+      <div class="center"><div class="qr">QRコード</div><div class="muted">施設の専用QRコードからアクセスします</div></div>
+      <label>テナント名</label>
+      <input id="tenant" placeholder="例）ビームス 六本木ヒルズ" autocomplete="off"/>
+      <label>パスワード</label>
+      <input type="password" value="demo0000" />
+      <div class="muted" style="margin-top:6px">8〜12桁／数字・記号・英大文字・英小文字のうち3種類以上</div>
+      <button class="btn" id="toSelect">ログイン</button>
+    </div>
+    <!-- select -->
+    <div class="screen" id="s-select">
+      <div class="card">
+        <div class="row"><span class="k">テナント</span><span class="v" id="selTenant">—</span></div>
+        <div class="row"><span class="k">売上日</span><span class="v"><input id="date" type="date" style="width:auto;padding:4px 8px;font-size:14px"/></span></div>
+        <div class="row"><span class="k">撮影対象</span><span class="v">レシート</span></div>
+        <div class="row"><span class="k">レシート</span><span class="v">精算レシート</span></div>
+      </div>
+      <div class="muted" style="margin-top:12px">「テナント名」「日付」が見える位置で撮影してください。画面の自動回転をONに。</div>
+      <button class="btn" id="toCapture">撮影開始</button>
+      <button class="btn ghost" id="backLogin">← 戻る</button>
+    </div>
+    <!-- preview -->
+    <div class="screen" id="s-preview">
+      <img class="preview" id="prev" alt="撮影プレビュー"/>
+      <div class="card">
+        <div class="row"><span class="k">テナント</span><span class="v" id="pvTenant">—</span></div>
+        <div class="row"><span class="k">売上日</span><span class="v" id="pvDate">—</span></div>
+      </div>
+      <div class="err" id="err" style="display:none"></div>
+      <button class="btn" id="send">送信する</button>
+      <button class="btn sec" id="retake">撮り直す</button>
+    </div>
+    <!-- done -->
+    <div class="screen" id="s-done">
+      <div class="ok">✓ 送信しました。<br>このあと会計室（管理者）で内容が確認・不読修正・承認されます。</div>
+      <div class="muted center" id="doneId" style="margin-top:10px"></div>
+      <button class="btn" id="again">続けて送信</button>
+    </div>
+  </div>
+  <!-- camera overlay -->
+  <div id="cam">
+    <div class="cam-top"><span>⊖</span><span class="cam-hint">レシートを枠に合わせて</span><span>⊕</span></div>
+    <div class="decoy"><div class="paper">□□□□ 店<br>ROPPONGI（見本）<br>―――――――<br>総売上&nbsp;&nbsp;123,000<br>返品&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0<br>純売上&nbsp;&nbsp;123,000<br>客数&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;48</div></div>
+    <div class="frame"><span>両角を合わせて撮影してください</span></div>
+    <div class="guide" id="guide"><b>撮り方ガイド</b><br>・明るい場所で、台紙を壁に付けて横から撮影<br>・縦長は端末を縦／横長は横に<br>・上から撮ると影になるので避ける<div style="text-align:right;margin-top:4px"><span id="guideClose" style="color:#1b5fae;font-weight:700;cursor:pointer">閉じる ✕</span></div></div>
+    <div class="cam-bar">
+      <span class="t" id="camBack">戻る</span>
+      <label class="shutter">◉<input id="file" type="file" accept="image/*" capture="environment"/></label>
+      <span class="t" id="guideBtn">撮り方</span>
+    </div>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const state={tenant:"",date:new Date().toISOString().slice(0,10),base64:null,mime:null,dataUrl:null};
+$("date").value=state.date;
+function show(id,title){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on"));$(id).classList.add("on");if(title)$("htitle").textContent=title;}
+function cam(on){$("cam").classList.toggle("on",on);}
+
+$("toSelect").onclick=()=>{const t=$("tenant").value.trim();if(!t){$("tenant").focus();return;}state.tenant=t;$("selTenant").textContent=t;show("s-select","売上日・レシート選択");};
+$("backLogin").onclick=()=>show("s-login","ログイン");
+$("date").onchange=e=>state.date=e.target.value;
+$("toCapture").onclick=()=>{$("err").style.display="none";cam(true);};
+$("camBack").onclick=()=>cam(false);
+$("guideBtn").onclick=()=>$("guide").classList.toggle("on");
+$("guideClose").onclick=()=>$("guide").classList.remove("on");
+$("file").onchange=e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{const url=r.result;state.dataUrl=url;state.base64=String(url).split(",")[1];state.mime=f.type||"image/jpeg";
+    $("prev").src=url;$("pvTenant").textContent=state.tenant;$("pvDate").textContent=state.date;
+    cam(false);show("s-preview","撮影内容の確認・送信");};
+  r.readAsDataURL(f);
+};
+$("retake").onclick=()=>{$("err").style.display="none";cam(true);};
+$("send").onclick=async()=>{
+  const b=$("send");b.disabled=true;b.innerHTML='<span class="spin"></span>送信中…';$("err").style.display="none";
+  try{
+    const res=await fetch("/api/submissions",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({tenant:state.tenant,sale_date:state.date,image_base64:state.base64,mime:state.mime})});
+    if(!res.ok)throw new Error(await res.text());
+    const d=await res.json();
+    $("doneId").textContent="受付ID: "+d.id;show("s-done","送信完了");
+  }catch(e){$("err").textContent=String(e.message||e);$("err").style.display="block";}
+  finally{b.disabled=false;b.textContent="送信する";}
+};
+$("again").onclick=()=>{state.base64=null;state.dataUrl=null;$("prev").src="";show("s-select","売上日・レシート選択");};
+</script>
+</body></html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>れぽこれ！ 管理者画面（会計室）</title>
+<style>html,body{margin:0;background:#eef0f5;}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin></script>
+</head><body>
+<div id="root"></div>
+<div id="loading" style="font-family:sans-serif;color:#6b7280;padding:24px;">読み込み中…</div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+const c = { page:"#eef0f5", navy:"#1f3a63", green:"#7cb342", greenDark:"#5c9130", blue:"#1b5fae",
+  headerBar:"#2b3a8c", lavender:"#c7cadd", lavenderLite:"#e4e6f1", zebra:"#f3f4fa", line:"#d3d6e2",
+  text:"#242838", muted:"#6b7280", yellow:"#f7ef9c", yellowText:"#6b5e00", white:"#fff",
+  red:"#c0392b", redBg:"#fce8e8", amber:"#b8791a", amberBg:"#fdf3df", greenOk:"#3a8a4c", greenBg:"#e8f5ea" };
+const font='"Hiragino Kaku Gothic ProN","Meiryo","Yu Gothic",system-ui,sans-serif';
+const mono='"SFMono-Regular",Menlo,Consolas,monospace';
+const num={fontVariantNumeric:"tabular-nums",fontFamily:mono};
+const yen=(v)=>v==null?"—":Number(v).toLocaleString("ja-JP");
+const btn=(bg,fg,bd)=>({background:bg,color:fg,border:`1px solid ${bd||bg}`,borderRadius:4,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:font});
+const SEV={red:{bg:c.redBg,fg:c.red,t:"要修正"},amber:{bg:c.amberBg,fg:c.amber,t:"要確認"},green:{bg:c.greenBg,fg:c.greenOk,t:"確定"}};
+const Badge=({lv})=>{const m=SEV[lv];return <span style={{background:m.bg,color:m.fg,fontSize:12,fontWeight:700,padding:"2px 9px",borderRadius:10,whiteSpace:"nowrap"}}>● {m.t}</span>;};
+const Sec=({children})=>(<div style={{display:"flex",alignItems:"center",gap:8,margin:"0 0 8px"}}><span style={{width:4,height:16,background:c.headerBar,borderRadius:1}}/><span style={{fontWeight:700,fontSize:14,color:c.navy}}>{children}</span></div>);
+
+function Chrome({children}){return(<>
+  <div style={{background:c.white,borderTop:`3px solid ${c.green}`,borderBottom:`1px solid ${c.line}`,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 16px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,fontWeight:800,color:c.greenDark,letterSpacing:1}}>れぽ<span style={{color:c.green}}>こ</span>れ！</span><span style={{fontSize:11,color:c.muted}}>ICAS 日報統合 Web システム / 管理者画面</span></div>
+    <span style={{fontSize:12,color:c.navy,fontWeight:700}}>GLORY LTD.</span>
+  </div>
+  <div style={{background:c.navy,display:"flex",gap:2,padding:"0 12px"}}>{["トップ","現金","商品券","レポート","返金","集計","処理履歴"].map((t,i)=>(<div key={t} style={{color:i===0?c.navy:"#dfe6f2",background:i===0?c.white:"transparent",padding:"10px 16px",fontSize:13,fontWeight:700,borderRadius:"4px 4px 0 0"}}>{t}</div>))}</div>
+  {children}
+</>);}
+
+async function api(path,opts){const r=await fetch(path,opts);if(!r.ok)throw new Error(await r.text());return r.json();}
+
+function Dashboard({items,onOpen,loading}){
+  const red=items.reduce((s,x)=>s+((!x.approved&&x.netSev==="red"?1:0)+(!x.approved&&x.custSev==="red"?1:0)),0);
+  const amber=items.reduce((s,x)=>s+((!x.approved&&x.netSev==="amber"?1:0)+(!x.approved&&x.custSev==="amber"?1:0)),0);
+  const pending=items.filter(x=>!x.approved).length;
+  return(<Chrome>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",background:c.lavenderLite,borderBottom:`1px solid ${c.line}`}}>
+      <div style={{display:"flex",gap:14,fontSize:13,alignItems:"center"}}><span style={{fontWeight:800,color:c.navy,fontSize:15}}>日次確認ダッシュボード</span><span style={{color:c.muted}}>テナント送信を自動反映（5秒ごと更新）</span></div>
+      <span style={{background:c.yellow,color:c.yellowText,fontWeight:800,fontSize:12,padding:"4px 12px",borderRadius:4}}>不読修正モード</span>
+    </div>
+    <div style={{padding:14}}>
+      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        {[["提出済み",items.length,c.navy],["未処理",pending,c.red],["要修正",red,c.red],["要確認",amber,c.amber]].map(([l,v,a])=>(
+          <div key={l} style={{background:c.white,border:`1px solid ${c.line}`,borderRadius:6,padding:"12px 16px",flex:1,minWidth:120}}><div style={{fontSize:12,color:c.muted,marginBottom:4}}>{l}</div><div style={{...num,fontSize:26,fontWeight:800,color:a}}>{v}</div></div>
+        ))}
+      </div>
+      <div style={{background:c.white,border:`1px solid ${c.line}`,borderRadius:6,overflow:"hidden"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <thead><tr style={{background:c.lavender,color:c.navy}}>{["テナント","売上日","純売上(読取)","客数","状態",""].map((h,i)=>(<th key={i} style={{textAlign:i===0?"left":i>=2&&i<=3?"right":"left",padding:"10px 12px",fontWeight:700}}>{h}</th>))}</tr></thead>
+          <tbody>
+            {items.length===0&&(<tr><td colSpan={6} style={{padding:24,textAlign:"center",color:c.muted}}>{loading?"読み込み中…":"まだ送信されたレシートはありません。テナントが撮影・送信すると自動で表示されます。"}</td></tr>)}
+            {items.map((x,i)=>{const sev=x.approved?"green":(x.netSev==="red"||x.custSev==="red")?"red":(x.netSev==="amber"||x.custSev==="amber")?"amber":"green";
+              return(<tr key={x.id} onClick={()=>onOpen(x)} style={{background:i%2?c.zebra:c.white,cursor:"pointer",borderLeft:`3px solid ${sev==="red"?c.red:sev==="amber"?c.amber:"transparent"}`}}>
+                <td style={{padding:"9px 12px",fontWeight:700}}>{x.tenant}</td>
+                <td style={{padding:"9px 12px",color:c.muted,...num}}>{x.sale_date}</td>
+                <td style={{padding:"9px 12px",textAlign:"right",...num}}>{yen(x.approved?x.net_final:x.net_read)}</td>
+                <td style={{padding:"9px 12px",textAlign:"right",...num}}>{x.approved?x.cust_final:(x.customers==null?"—":x.customers)}</td>
+                <td style={{padding:"9px 12px"}}>{x.approved?<Badge lv="green"/>:<Badge lv={sev}/>}</td>
+                <td style={{padding:"9px 12px",textAlign:"right",color:c.navy,fontWeight:700}}>{x.approved?"確認 →":"不読修正 →"}</td>
+              </tr>);})}
+          </tbody>
+        </table>
+      </div>
+      <div style={{fontSize:11,color:c.muted,marginTop:12,lineHeight:1.6}}>算術（純売上＝総売上−返品−割引）はサーバ側で確定計算。Geminiは画像からの構造抽出のみ。行をクリックすると不読修正・承認画面へ。</div>
+    </div>
+  </Chrome>);
+}
+
+function Approve({item,onBack,onApproved}){
+  const [zoom,setZoom]=useState(1);
+  const [sel,setSel]=useState(()=>{const i=item.candidates.findIndex(c0=>c0.star);return i<0?0:i;});
+  const [manNet,setManNet]=useState("");
+  const [cust,setCust]=useState(item.customers==null?"":String(item.customers));
+  const [busy,setBusy]=useState(false);const [err,setErr]=useState(null);
+  const netVal=manNet.trim()!==""?Number(manNet.replace(/[^0-9]/g,"")):item.candidates[sel]?.v;
+  const tatekei=item.hasBreakdown?(netVal===item.net_formula?"ok":"ng"):"na";
+  const approve=async()=>{setBusy(true);setErr(null);try{
+    await api(`/api/submissions/${item.id}/approve`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({net_final:netVal,cust_final:cust===""?null:Number(cust)})});
+    onApproved();
+  }catch(e){setErr(String(e.message||e));}finally{setBusy(false);}};
+  const ck=(s)=>({ok:{fg:c.greenOk,t:"OK"},ng:{fg:c.red,t:"不一致"},na:{fg:c.muted,t:"対象外"}}[s]);
+  return(<Chrome>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",background:c.lavenderLite,borderBottom:`1px solid ${c.line}`}}>
+      <div style={{display:"flex",gap:12,alignItems:"center",fontSize:13}}><button onClick={onBack} style={btn(c.white,c.navy,c.line)}>← 一覧</button><span style={{fontWeight:800,color:c.navy,fontSize:15}}>{item.tenant}</span><span style={{color:c.muted}}>{item.sale_date}</span></div>
+      <span style={{background:c.yellow,color:c.yellowText,fontWeight:800,fontSize:12,padding:"4px 12px",borderRadius:4}}>不読修正モード</span>
+    </div>
+    <div style={{padding:"5px 16px",background:c.zebra,borderBottom:`1px solid ${c.line}`,fontSize:11,color:c.muted}}>解析済みデータ：<b style={{color:c.navy}}>Gemini LLM</b>（サーバ側で読取）。算術・式検証はアプリ側で確定。</div>
+    <div style={{display:"grid",gridTemplateColumns:"360px 1fr",gap:12,padding:14,alignItems:"start"}}>
+      <div style={{background:c.white,border:`1px solid ${c.line}`,borderRadius:6,padding:12}}>
+        <Sec>レシート画像（テナント撮影）</Sec>
+        <div style={{height:430,overflow:"auto",borderRadius:6,border:`1px solid ${c.line}`,background:"#111",display:"grid",placeItems:"start center",padding:8}}>
+          <img src={item.imageUrl} alt="レシート" style={{transform:`scale(${zoom})`,transformOrigin:"top center",maxWidth:"100%",borderRadius:4}}/>
+        </div>
+        <div style={{display:"flex",gap:6,marginTop:10,alignItems:"center"}}>
+          <button onClick={()=>setZoom(z=>Math.min(3,+(z+0.25).toFixed(2)))} style={btn(c.white,c.navy,c.line)}>＋</button>
+          <button onClick={()=>setZoom(z=>Math.max(1,+(z-0.25).toFixed(2)))} style={btn(c.white,c.navy,c.line)}>－</button>
+          <button onClick={()=>setZoom(1)} style={btn(c.white,c.navy,c.line)}>等倍</button>
+          <span style={{marginLeft:"auto",fontSize:11,color:c.muted,...num}}>×{zoom.toFixed(2)}</span>
+        </div>
+        <div style={{marginTop:8,background:c.zebra,border:`1px solid ${c.line}`,borderRadius:4,padding:"8px 10px",fontSize:11}}>
+          <div style={{fontWeight:700,color:c.navy,marginBottom:4}}>Gemini 読取結果 {item.vendor?`（${item.vendor}）`:""}</div>
+          {item.error&&<div style={{color:c.red}}>読取エラー: {item.error}</div>}
+          {item.lines.slice(0,14).map((l,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"1px 0"}}><span>{String(l.label)}</span><span style={num}>{String(l.value)}</span></div>))}
+        </div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{background:c.white,border:`1px solid ${item.netSev==="green"?c.greenOk:c.line}`,borderRadius:6,padding:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontWeight:800,fontSize:16}}>純売上</span><Badge lv={item.approved?"green":item.netSev}/></div>
+          {item.approved?(<div style={{background:c.greenBg,borderRadius:4,padding:"10px 12px",display:"flex",justifyContent:"space-between"}}><span style={{color:c.greenOk,fontWeight:700}}>確定値</span><span style={{...num,fontSize:18,fontWeight:800}}>{yen(item.net_final)} 円</span></div>):(<>
+            <div style={{display:"flex",gap:16,fontSize:13,marginBottom:10}}><span style={{color:c.muted}}>AI読取値 <b style={{...num,color:c.text,fontSize:15}}>{yen(item.net_read)}</b> 円</span></div>
+            <div style={{display:"flex",gap:20,fontSize:13,marginBottom:10}}><span>たて計（縦計）: <b style={{color:ck(tatekei).fg}}>{ck(tatekei).t}</b></span></div>
+            {item.hasBreakdown&&<div style={{fontSize:12,color:c.muted,marginBottom:6}}>式: {item.formula} ＝ <b style={{color:c.greenOk,...num}}>{yen(item.net_formula)}</b></div>}
+            <div style={{fontSize:12,color:c.muted,marginBottom:6}}>訂正候補（★＝式が成立）</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
+              {item.candidates.map((cd,i)=>(<button key={i} onClick={()=>{setSel(i);setManNet("");}} style={{cursor:"pointer",borderRadius:18,padding:"7px 14px",fontSize:13,fontFamily:font,border:`2px solid ${sel===i&&manNet===""?c.blue:cd.star?c.greenOk:c.line}`,background:sel===i&&manNet===""?"#eaf2fc":cd.star?c.greenBg:c.white,fontWeight:cd.star?800:600}}><span style={num}>{yen(cd.v)}</span>{cd.star&&<span style={{color:c.greenOk,marginLeft:5}}>★</span>}<span style={{display:"block",fontSize:10,color:c.muted,fontWeight:500}}>{cd.note}</span></button>))}
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
+              <span style={{fontSize:12,color:c.muted}}>不読修正（手入力）:</span>
+              <input value={manNet} onChange={e=>setManNet(e.target.value)} placeholder="値を直接入力" style={{...num,border:`1px solid ${c.line}`,borderRadius:4,padding:"6px 10px",fontSize:14,width:140}}/>
+            </div>
+          </>)}
+        </div>
+        <div style={{background:c.white,border:`1px solid ${item.custSev==="green"?c.greenOk:c.line}`,borderRadius:6,padding:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontWeight:800,fontSize:16}}>客数</span><Badge lv={item.approved?"green":item.custSev}/></div>
+          {item.approved?(<div style={{background:c.greenBg,borderRadius:4,padding:"10px 12px",display:"flex",justifyContent:"space-between"}}><span style={{color:c.greenOk,fontWeight:700}}>確定値</span><span style={{...num,fontSize:18,fontWeight:800}}>{item.cust_final} 人</span></div>):(<>
+            <div style={{fontSize:13,color:c.muted,marginBottom:8}}>AI読取値 <b style={{...num,color:c.text,fontSize:15}}>{item.customers==null?"読取不可":item.customers}</b> {item.customers==null?"":"人"}　たて計: 対象外（単一値）</div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:12,color:c.muted}}>不読修正:</span><input value={cust} onChange={e=>setCust(e.target.value)} placeholder="人数" style={{...num,border:`1px solid ${c.line}`,borderRadius:4,padding:"6px 10px",fontSize:14,width:100}}/></div>
+          </>)}
+        </div>
+        {err&&<div style={{background:c.redBg,color:c.red,borderRadius:6,padding:"8px 10px",fontSize:12,wordBreak:"break-all"}}>{err}</div>}
+        {!item.approved&&<button onClick={approve} disabled={busy||netVal==null||isNaN(netVal)} style={{...btn(busy?"#9bbf7e":c.green,c.white),fontSize:14,padding:"10px 20px",alignSelf:"flex-start"}}>{busy?"送信中…":"この内容で承認する"}</button>}
+        {item.approved&&<button onClick={onBack} style={btn(c.greenOk,c.white)}>一覧へ戻る →</button>}
+      </div>
+    </div>
+  </Chrome>);
+}
+
+function App(){
+  const [items,setItems]=useState([]);const [loading,setLoading]=useState(true);
+  const [openId,setOpenId]=useState(null);
+  const load=useCallback(async()=>{try{const d=await api("/api/submissions");setItems(d);}catch(e){console.error(e);}finally{setLoading(false);}},[]);
+  useEffect(()=>{load();const t=setInterval(load,5000);return()=>clearInterval(t);},[load]);
+  const open=items.find(x=>x.id===openId)||null;
+  return open
+    ? <Approve item={open} onBack={()=>{setOpenId(null);load();}} onApproved={async()=>{await load();setOpenId(null);}}/>
+    : <Dashboard items={items} loading={loading} onOpen={(x)=>setOpenId(x.id)}/>;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+document.getElementById("loading").style.display="none";
+</script></body></html>

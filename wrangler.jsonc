@@ -1,0 +1,19 @@
+{
+  // Cloudflare Pages 用設定。GitHub連携でも wrangler pages deploy でも使えます。
+  "name": "repokore-mvp",
+  "compatibility_date": "2026-06-30",
+  "pages_build_output_dir": "public",
+
+  // D1（データベース）: `wrangler d1 create repokore` で作成し、出力された database_id を入れる
+  "d1_databases": [
+    { "binding": "DB", "database_name": "repokore", "database_id": "<あなたのD1のdatabase_id>" }
+  ],
+
+  // R2（画像ストレージ）: `wrangler r2 bucket create repokore-receipts`
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "repokore-receipts" }
+  ],
+
+  // 非機密の変数。GEMINI_API_KEY は変数ではなく「シークレット」で登録すること（README参照）
+  "vars": { "GEMINI_MODEL": "gemini-2.5-flash" }
+}

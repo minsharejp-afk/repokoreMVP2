@@ -1,0 +1,3 @@
+# ローカル開発用（このファイルをコピーして .dev.vars を作る／.dev.vars はコミットしない）
+GEMINI_API_KEY=ここにあなたのGemini APIキー
+GEMINI_MODEL=gemini-2.5-flash
