@@ -30,8 +30,8 @@ export async function onRequestPost(context) {
   catch (e) { g = { _error: String(e.message || e).slice(0, 200) }; }
 
   const total = n(g.total_sales), ret = n(g.returns), disc = n(g.discounts), net = n(g.net_sales), cust = n(g.customers);
-  const netRead = net != null ? net : (total != null ? total - (ret || 0) - (disc || 0) : null);
-  const netFormula = total != null ? total - (ret || 0) - (disc || 0) : null;
+  const netRead = net != null ? net : (total != null ? total - Math.abs(ret || 0) - Math.abs(disc || 0) : null);
+  const netFormula = total != null ? total - Math.abs(ret || 0) - Math.abs(disc || 0) : null;
 
   // 読取が確実なら自動承認（縦計一致＋客数あり）。不確かなものだけ人の確認へ回す。
   const clean = isClean(total, ret, disc, netRead, netFormula, cust);
