@@ -16,7 +16,7 @@ export const n = (v) => (v == null || v === "" || isNaN(Number(v))) ? null : Mat
 export async function geminiExtract(key, model, base64, mime) {
   if (!key) throw new Error("GEMINI_API_KEY 未設定");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const prompt = '次のJSONのみを返してください（前後の説明やコードブロックは不要）:\n{"store":"店名(推定)","vendor":"POSベンダー名(推定)","total_sales":整数かnull,"returns":整数かnull,"discounts":整数かnull,"net_sales":整数かnull,"customers":整数かnull,"lines":[{"label":"項目名","value":"値"}]}\nこれは日本の店舗の精算レシート画像です。総売上・返品・割引・純売上・客数を読み取り、その他の明細はlinesに入れてください。金額はカンマや¥を除いた整数。読み取れない値はnull。';
+  const prompt = '次のJSONのみを返してください（前後の説明やコードブロックは不要）:\n{"store":"店名(推定)","vendor":"POSベンダー名(推定)","total_sales":整数かnull,"returns":整数かnull,"discounts":整数かnull,"net_sales":整数かnull,"customers":整数かnull,"lines":[{"label":"項目名","value":"値"}]}\nこれは日本の店舗の精算レシート画像です。総売上・返品・割引・純売上・客数を読み取り、その他の明細はlinesに入れてください。金額はカンマや¥を除いた整数。返品・割引は差し引く金額の大きさ（正の整数）で返す。読み取れない値はnull。';
   const body = { contents: [{ parts: [{ inline_data: { mime_type: mime, data: base64 } }, { text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0 } };
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error("Gemini API " + res.status + ": " + (await res.text()).slice(0, 160));
@@ -38,8 +38,10 @@ export function isClean(total, ret, disc, netRead, netFormula, cust) {
 export function shape(r) {
   let raw = {}; try { raw = JSON.parse(r.raw_json || "{}"); } catch {}
   const hasBreakdown = r.total_sales != null;
-  const holds = hasBreakdown && r.net_formula != null && r.net_read != null && r.net_formula === r.net_read;
-  const mismatch = hasBreakdown && r.net_formula != null && r.net_read != null && r.net_formula !== r.net_read;
+  // 返品・割引は符号に関わらず「差し引く量」として扱う（Geminiが負値で返しても二重マイナスにしない）
+  const nf = hasBreakdown ? (r.total_sales - Math.abs(r.returns || 0) - Math.abs(r.discounts || 0)) : null;
+  const holds = nf != null && r.net_read != null && nf === r.net_read;
+  const mismatch = nf != null && r.net_read != null && nf !== r.net_read;
   const approved = r.status === "approved";
   const auto = r.approved_by === "auto";
 
@@ -60,19 +62,19 @@ export function shape(r) {
     hasBreakdown,
     rows: hasBreakdown ? [
       { label: "総売上", op: "", value: r.total_sales },
-      { label: "返品", op: "−", value: r.returns || 0 },
-      { label: "割引", op: "−", value: r.discounts || 0 },
+      { label: "返品", op: "−", value: Math.abs(r.returns || 0) },
+      { label: "割引", op: "−", value: Math.abs(r.discounts || 0) },
     ] : [],
-    computed: r.net_formula,
+    computed: nf,
     read: r.net_read,
     holds, mismatch,
-    diff: (r.net_formula != null && r.net_read != null) ? (r.net_read - r.net_formula) : null,
+    diff: (nf != null && r.net_read != null) ? (r.net_read - nf) : null,
   };
 
   // 思考プロセス（人が読める説明）
   const reasons = [];
   if (hasBreakdown) {
-    reasons.push(`総売上 ${fmt(r.total_sales)} から 返品 ${fmt(r.returns || 0)}・割引 ${fmt(r.discounts || 0)} を引くと ${fmt(r.net_formula)}（縦計の計算値）。`);
+    reasons.push(`総売上 ${fmt(r.total_sales)} から 返品 ${fmt(Math.abs(r.returns || 0))}・割引 ${fmt(Math.abs(r.discounts || 0))} を引くと ${fmt(nf)}（縦計の計算値）。`);
     if (holds) reasons.push(`レシートの純売上(読取) ${fmt(r.net_read)} と一致 → 内部の算術が整合。純売上の信頼度 ${netConf}%。`);
     else if (mismatch) reasons.push(`純売上(読取) ${fmt(r.net_read)} と ${fmt(Math.abs(tatekei.diff))} ズレ（不一致）→ どちらかが誤読の疑い。信頼度 ${netConf}%。`);
     else reasons.push(`純売上が読み取れないため照合できません。信頼度 ${netConf}%。`);
@@ -87,8 +89,8 @@ export function shape(r) {
   let candidates;
   if (hasBreakdown) {
     candidates = mismatch
-      ? [{ v: r.net_read, note: "レシート読取値", star: false }, { v: r.net_formula, note: "式成立（総売上−返品−割引）", star: true }]
-      : [{ v: (r.net_read != null ? r.net_read : r.net_formula), note: "式成立・読取一致", star: true }];
+      ? [{ v: r.net_read, note: "レシート読取値", star: false }, { v: nf, note: "式成立（総売上−返品−割引）", star: true }]
+      : [{ v: (r.net_read != null ? r.net_read : nf), note: "式成立・読取一致", star: true }];
   } else {
     candidates = [{ v: r.net_read, note: "レシート読取値", star: true }];
   }
@@ -100,7 +102,7 @@ export function shape(r) {
     status: approved ? (auto ? "自動承認" : "承認済み") : (netSev === "red" || custSev === "red") ? "要修正" : "要確認",
     netSev, custSev, netConf, custConf, overall,
     total_sales: r.total_sales, returns: r.returns, discounts: r.discounts,
-    net_read: r.net_read, net_formula: r.net_formula, customers: r.customers,
+    net_read: r.net_read, net_formula: nf, customers: r.customers,
     hasBreakdown, holds, mismatch, formula, candidates, tatekei, reasons,
     net_final: r.net_final, cust_final: r.cust_final,
     vendor: r.vendor, lines: Array.isArray(raw.lines) ? raw.lines : [],
